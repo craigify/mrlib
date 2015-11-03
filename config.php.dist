@@ -1,0 +1,28 @@
+<?php
+// Mister Lib Foundation Library
+// Copyright(C) 2015 McDaniel Consulting, LLC
+//
+// Config file for mrlib.
+
+// This is usually the webroot, but it doesn't have to be.  It should the base directory that holds the different parts of the app.
+define("MRLIB_ROOT",             "/your/webroot/");
+
+// The mrlib directory containing the mrlib module code.  This does not have to be in the webroot at all.  In fact, it would probably
+// be better if it wasn't, just for an added layer of security.  It doesn't prevent potential unauthorized access, but it only makes
+// it slightly more difficult.
+define("MRLIB_DIR",              MRLIB_ROOT . "/mrlib/");
+
+// Hopefully the rest is self-explainatory.
+define("MRLIB_HANDLERS_DIR",     MRLIB_ROOT . "/handlers/");
+define("MRLIB_CONTROLLERS_DIR",  MRLIB_ROOT . "/controllers/");
+define("MRLIB_MODELS_DIR",       MRLIB_ROOT . "/models/");
+define("MRLIB_VIEWS_DIR",        MRLIB_ROOT . "/views/");
+define("MRLIB_TEMPLATE_DIR",     MRLIB_ROOT . "/templates/");
+define("MRLIB_INCLUDES_DIR",     MRLIB_ROOT . "/includes/");
+define("MRLIB_AUTOLOAD_DIR",     MRLIB_ROOT . "/includes/autoload/");
+
+// Enable auto loading from autoload dir?  Set this to TRUE/FALSE
+define("MRLIB_AUTOLOAD_ENABLED", TRUE);
+
+
+?>
