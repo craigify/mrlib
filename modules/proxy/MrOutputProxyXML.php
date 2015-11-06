@@ -8,7 +8,7 @@
 // NOTE: Use add() to add a data type to the resultset.
 
 
-mrlib::load("proxy/MrOutputProxy.php");
+mrlib::load("proxy/MrOutputProxy");
 
 class MrOutputProxyXML extends MrOutputProxy
 {

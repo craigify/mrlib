@@ -10,7 +10,7 @@
 //
 //
 
-mrlib::load("eventasync/MrEventHandlerAsync.php");
+mrlib::load("eventasync/MrEventHandlerAsync");
 
 
 class MrEventHandlerJSON extends MrEventHandlerAsync

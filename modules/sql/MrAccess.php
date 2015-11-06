@@ -17,9 +17,9 @@
 //
 //
 
-webtemplate_include("core", "sql/sql_generic.php");
-webtemplate_include("core", "sql/odbc.php");
-webtemplate_include("core", "util/date.php");
+webtemplate_include("core", "sql/sql_generic");
+webtemplate_include("core", "sql/odbc");
+webtemplate_include("core", "util/date");
 
 
 CLASS AccessDB EXTENDS ODBC

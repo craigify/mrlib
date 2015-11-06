@@ -20,7 +20,7 @@
 // flip()                       Flip the image vertically
 //
 
-mrlib::load("gd/MrGD.php");
+mrlib::load("gd/MrGD");
 
 class MrImageManipulator extends MrGD 
 {

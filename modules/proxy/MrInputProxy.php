@@ -23,7 +23,7 @@
 //  isEmail()            Return TRUE if an input variable is a valid email address.
 //
 
-mrlib::load("core/Validator.php");
+mrlib::load("core/Validator");
 
 
 class MrInputProxy

@@ -5,7 +5,7 @@
 // MrLib Template System - Template Function Manager
 //
 
-mrlib::load("core/MrSingleton.php");
+mrlib::load("core/MrSingleton");
 
 
 class MrFunctionManager extends MrSingleton

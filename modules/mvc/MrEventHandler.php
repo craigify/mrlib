@@ -24,9 +24,9 @@
 // 6) Call the execute() method.
 //
 
-mrlib::load("mvc/MrEventAuth.php");
-mrlib::load("mvc/MrEventValidator.php");
-mrlib::load("mvc/MrController.php");
+mrlib::load("mvc/MrEventAuth");
+mrlib::load("mvc/MrEventValidator");
+mrlib::load("mvc/MrController");
 
 class MrEventHandler extends MrEventValidator
 {
