@@ -51,7 +51,7 @@
 // setDebugDisplay()   Toggle the displaying of debug information by passing TRUE.  Default FALSE.
 //
 
-mrlib::load("event", "MrEventHandler.php");
+mrlib::load("event/MrEventHandler.php");
 
 
 abstract class MrEventHandlerAsync extends MrEventHandler

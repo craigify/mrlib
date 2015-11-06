@@ -27,8 +27,7 @@ class mrlib
     
     
 
-    // Include a mrlib module file.  You don't need to know the full path, since MrLib detects the location in the
-    // filesystem automatucally.
+    // Helper function to load a file.  This provides consistent 
     //
     // This method can be called in the following two ways:
     // 1 -  Specify the path syntax:
@@ -37,27 +36,21 @@ class mrlib
     // 2 -  Specify the module and filename explicitly: 
     //      mrlib::load("sql", "MrDatabaseManager.php");
     //
-    public static function load()
+    public static function load($file)
     {
-        // Path syntax
-        if (func_num_args() == 1)
+        $location = mrlib::getFileSystemLocation();
+
+        // If file starts with "./", we look into the application root dir.
+        if ($file[0] == "." && $file[1] == "/")
         {
-            $path = func_get_arg(0);
-            $elements = explode("/", $path);
-            $last = count($elements) - 1;
-            $module = $elements[0];
-            $file = $elements[$last] . ".php";
+            require_once($location['root_dir'] . "/" . $file . ".php");
         }
         
-        // Specified module and filename
+        // The file did not start with "./".  Assume we're loading a mrlib module.  Look in mrlib modules dir.
         else
         {
-            $module = func_get_arg(0);
-            $file = func_get_arg(1);
+            require_once($location['modules_dir'] . "/" . $file . ".php");            
         }
-        
-        $location = mrlib::getFileSystemLocation();
-        require_once($location['modules_dir'] . "/{$module}/{$file}");
     }
 
 
@@ -107,24 +100,44 @@ class mrlib
     // Detect location of mrlib in filesystem.
     public static function detectFilesystemLocation()
     {
-        $f = dirname(__FILE__);
         mrlib::$filesystemLocation['lib_dir'] = "";
         mrlib::$filesystemLocation['modules_dir'] = "";
+        mrlib::$filesystemLocation['root_dir'] = "";
 
-        $arr = explode("/", $f);
-        $arr_num = count($arr);
-
-        for ($i=0; $i < $arr_num; $i++)
+        // lib_dir is the base of the mrlib framework.     
+        if (defined("MRLIB_DIR"))
         {
-            mrlib::$filesystemLocation['lib_dir'] .= $arr[$i] . "/";
+            mrlib::$filesystemLocation['lib_dir'] = MRLIB_DIR;
+            mrlib::$filesystemLocation['modules_dir'] = MRLIB_DIR . "/modules/";
         }
-
-        for ($i=0; $i < $arr_num - 1; $i++)
+        else
         {
-            mrlib::$filesystemLocation['modules_dir'] .= $arr[$i] . "/";
+            $f = dirname(__FILE__);
+            $arr = explode("/", $f);
+            $arr_num = count($arr);
+
+            for ($i=0; $i < $arr_num; $i++)
+            {
+                mrlib::$filesystemLocation['lib_dir'] .= $arr[$i] . "/";
+            }
+
+            for ($i=0; $i < $arr_num - 1; $i++)
+            {
+                mrlib::$filesystemLocation['modules_dir'] .= $arr[$i] . "/";
+            }
+        
+            mrlib::$filesystemLocation['modules_dir'] .= $arr[$i] . "/modules/";            
         }
         
-        mrlib::$filesystemLocation['modules_dir'] .= $arr[$i] . "/modules/";
+        // root_dir is where the application lives.  Models, Views, Controllers, Includes, Templates, etc...
+        if (defined("MRLIB_ROOT"))
+        {
+            mrlib::$filesystemLocation['root_dir'] = MRLIB_ROOT;
+        }        
+        else
+        {
+            throw new Exception("MRLIB_ROOT was not defined.");
+        }        
     }
 
 

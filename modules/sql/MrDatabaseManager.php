@@ -28,7 +28,7 @@
 //   $myConn->doSelect(blah blah);
 //
 
-mrlib::load("core", "MrSingleton.php");
+mrlib::load("core/MrSingleton.php");
 
 class MrDatabaseManager extends MrSingleton
 {

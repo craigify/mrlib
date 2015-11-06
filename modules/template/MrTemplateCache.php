@@ -5,7 +5,7 @@
 // MrTemplate Cache Singleton.  Manage global template cache.
 //
 
-mrlib::load("core", "MrSingleton.php");
+mrlib::load("core/MrSingleton.php");
 
 
 class MrTemplateCache extends MrSingleton

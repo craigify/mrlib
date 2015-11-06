@@ -5,7 +5,7 @@
 // MrInputProxyJSON - Extend the default input proxy, and automatically decode any JSON in input data.
 //
 
-mrlib::load("proxy", "MrInputProxy.php");
+mrlib::load("proxy/MrInputProxy.php");
 
 class MrInputProxyJSON extends MrInputProxy
 {

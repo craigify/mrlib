@@ -12,7 +12,7 @@
 //                           This applies to the do() methods only.
 //
 
-mrlib::load("sql", "MrSQL.php");
+mrlib::load("sql/MrSQL.php");
 
 
 class MrPgSQL extends MrSQL

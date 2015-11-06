@@ -13,7 +13,7 @@
 //
 //
 
-mrlib::load("sql", "MrSQL.php");
+mrlib::load("sql/MrSQL.php");
 
 
 class MrSQLDummy extends MrSQL

@@ -12,7 +12,7 @@
 // 
 //
 
-mrlib::load("proxy", "MrOutputProxy.php");
+mrlib::load("proxy/MrOutputProxy.php");
 
 
 class MrOutputProxyJSON extends MrOutputProxy

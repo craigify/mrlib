@@ -4,8 +4,9 @@
 //
 // Authentication Manager Singleton
 //
-mrlib::load("core", "MrSingleton.php");
-mrlib::load("auth", "MrAuthHandler.php");
+
+mrlib::load("core/MrSingleton.php");
+mrlib::load("auth/MrAuthHandler.php");
 
 class MrAuthManager extends MrSingleton
 {
