@@ -228,7 +228,7 @@ class MrEventHandler extends MrEventValidator
  
       foreach ($this->routes as $route)
       {
-         $pattern = "[" . $route['uri'] . "]";
+         $pattern = "[" . $route['uri'] . "\$]";
          
          if (preg_match($pattern, $uri) == 1)
          {
@@ -254,7 +254,7 @@ class MrEventHandler extends MrEventValidator
  
       foreach ($this->routes as $route)
       {  
-         $pattern = "[" . $route['uri'] . "]";
+         $pattern = "[" . $route['uri'] . "\$]";
          
          if (preg_match($pattern, $uri, $matches) == 1)
          {
