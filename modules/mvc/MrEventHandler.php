@@ -2,9 +2,8 @@
 // Mister Lib Foundation Library
 // Copyright(C) 2015 McDaniel Consulting, LLC
 //
-// Event Handling and Routing Layer.  This class allows you to define routing rules,
-// and tie in events to controllers based on input data criteria.  It also ties in
-// the Authentication layer so you can configure ACL rules.
+// Event Handling and Routing Mediator.  This class allows you to define routing rules, and tie in events to controllers based on input data criteria.  It also
+// ties in the Authentication layer so you can configure ACL rules.
 //
 // Usage:
 // ----------------------------------------------------------------------------------------
@@ -202,7 +201,7 @@ class MrEventHandler extends MrEventValidator
       
       foreach ($this->routes as $route)
       {
-         $pattern = "[" . $route['uri'] . "]";
+         $pattern = "[" . $route['uri'] . "\$]";
          
          if (preg_match($pattern, $uri) == 1)
          {
@@ -315,20 +314,36 @@ class MrEventHandler extends MrEventValidator
          }
       }
 
+      // Get the output proxy.
+      $this->getOutputProxy();
+
+      // Check that event isn't empty.  If it is here, then there was A) no event specified and B) no default event.
+      if (empty($this->eventName))
+      {
+         $controllerName = get_class($this->controllerObj);
+         trigger_error("Controller: {$controllerName}: No event or default event specified.", E_USER_WARNING);
+	 $this->outputProxy->setHttpResponseCode(404);
+	 $this->outputProxy->displayOutput();
+         return FALSE;	 
+      }
+      
       // Check that the method exists.
       if (!method_exists($this->controllerObj, $this->eventName))
       {
          $controllerName = get_class($this->controllerObj);
-         trigger_error("Event '{$this->eventName}' not available on controller '{$controllerName}'.  Giving up, Sorry!", E_USER_WARNING);
+         trigger_error("Controller: {$controllerName}: No matching method for event {$this->eventName}", E_USER_WARNING);
+	 $this->outputProxy->setHttpResponseCode(404);
+	 $this->outputProxy->displayOutput();
          return FALSE;
       }
 
       // Set a reference to the event handler (us) on the controller object.
       $this->controllerObj->setEventHandler($this);
 
-      // Get the output proxy.
-      $this->getOutputProxy();
-
+      
+      // TO DO. SET PROPER HTTP CODE BASED ON AUTHENTICATION STATUS.
+      
+      
       // Check authentication credentials.  Execute any callback methods.  See file for details.
       // NOTE that failed authentication will not trigger a FALSE return value from execute()
       if ($this->autoAuth === TRUE)
