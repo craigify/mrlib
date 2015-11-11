@@ -4,9 +4,8 @@
 //
 // JSON Output Proxy
 //
-// Provide methods for adding and encoding JSON data to the client.  Instead of sending over
-// a stream of output data, we send over a formatted result object encoded in JSON.
-//
+// Provide methods for adding and encoding JSON data to the client.  Instead of sending over a stream of output data, we send over a formatted result object
+// encoded in JSON.
 //
 // NOTE: Instead of using setOutput() and appendOutput(), use add() to add a data type to the resultset.  
 // 
@@ -59,6 +58,12 @@ class MrOutputProxyJSON extends MrOutputProxy
    // @return $encodeStr (string) JSON encoded result string.
    public function getEncoded()
    {
+      // Just return empty string if our input data is empty.
+      if (empty($this->inVars))
+      {
+         return "";
+      }
+      
       $encodedStr = json_encode($this->inVars);
       return $encodedStr;
    }
