@@ -4,20 +4,8 @@
 //
 // Output Proxy
 //
-// The OutputProxy class provides a method for setting output data and delivering output data to
-// the client.  It is automatically attached to your controller class by the $this->outputProxy
-// variable and should always be used to handle output.  Don't echo() directly.
-//
-//
-//  Method               Description
-// ------------------------------------------------------------------------------------------------
-// setContentType()      Set the content type.  Defaults to 'text/html'
-// addHeader()           Add a header to be displayed when output is sent to client.
-// setOutput()           Set the output buffer.
-// appendOutput()        Append to the existing output buffer.
-// getOutput()           Return output buffer & headers as a string.
-// clearOutput()         Clear output buffer.
-// displayOutput()       Display output buffer to client.
+// The OutputProxy class provides a method for setting output data and delivering output data to the client.  It is automatically attached to your controller
+// class by the $this->outputProxy variable and should always be used to handle output.  Don't echo() directly.
 //
 
 class MrOutputProxy
@@ -25,7 +13,8 @@ class MrOutputProxy
    protected $outputData;
    protected $contentType;
    protected $headers;
-
+   protected $httpResponseCode;
+   
 
    // Constructor
    function __construct()
@@ -33,6 +22,7 @@ class MrOutputProxy
       $this->outputData = "";
       $this->headers = array();
       $this->contentType = "text/html";
+      $this->httpResponseCode = 200;
       ob_start();
    }
 
@@ -42,6 +32,21 @@ class MrOutputProxy
    public function setContentType($type)
    {
       $this->contentType = $type;
+   }
+   
+   
+   // Set the HTTP response code that will be sent to the client when displayOutput() is called
+   // @param $code (int)  The HTTP Response code to use
+   public function setHttpResponseCode($code)
+   {
+      $this->httpResponseCode = $code;
+   }
+   
+   
+   // Return the current HTTP response code that will be sent to the client.
+   public function getHttpResponseCode()
+   {
+      return $this->httpResponseCode;
    }
    
    
@@ -79,6 +84,18 @@ class MrOutputProxy
       $output .= print_r($resultset, TRUE);
       $output .= "</pre>";
       $this->appendOutput($output);
+   }
+   
+   
+   // If you have an associative array of key=>value pairs, you can pass the entire array to this method so it can add each key to the result set for you.
+   // Note: If you have an object, just type cast it to an array before sending it to this method.
+   // @param $arr (array)  Array of key=> value pairs to add to output.
+   public function addFromAssoc($arr)
+   {
+      foreach ($arr as $key => $value)
+      {
+         $this->add($key, $value);
+      }
    }
    
    
@@ -121,10 +138,14 @@ class MrOutputProxy
    // Echo the output buffer to stdout, or back to the web server for sending to the client.
    public function displayOutput()
    {
+      http_response_code($this->httpResponseCode);
       echo $this->displayHeaders();
       echo $this->getOutput();
       ob_end_flush();
    }
+
+
+
 
 
 /* end class */
