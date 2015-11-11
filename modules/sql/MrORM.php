@@ -86,6 +86,7 @@ CLASS MrORM
    // Constructor.
    public function __construct($loadRelations = TRUE)
    {
+      $this->orm['data'] = array();
       $this->orm['loadRelations'] = $loadRelations;
       $this->orm['tableName'] = get_class($this);
       $this->orm['tableNameDb'] = get_class($this);
@@ -97,11 +98,13 @@ CLASS MrORM
       $this->orm['lastConditions'] = array(); // last conditions array for previous query.
       $this->orm['relations'] = array();
       $this->orm['queryQueue'] = array();
-      $this->orm['dbSync'] = FALSE; /* signify that we have not synched with db yet */
+      $this->orm['dbSync'] = FALSE;
+      $this->orm['isDirty'] = FALSE;      
+      $this->orm['cascadeSave'] = FALSE;
+      $this->orm['cascadeDelete'] = FALSE;
       $this->orm['reader'] = mrlib::getSingleton("sql/MrDatabaseManager")->getReader();
       $this->orm['writer'] = mrlib::getSingleton("sql/MrDatabaseManager")->getWriter();
    }
-
 
 
    // Manually set the database reader object.
@@ -141,14 +144,55 @@ CLASS MrORM
    //////////////////////////////////////////////////////////////////////////////////////////
 
 
+   // Intercept all property sets and direct them to the set() method.
+   public function __set($objField, $value)
+   {
+      $this->set($objField, $value);
+   }
+   
+   
+   
+   // Intercept all property unsets.
+   public function __unset($objField)
+   {
+      if (isset($this->orm['data'][$objField]))
+      {
+	 unset($this->orm['data'][$objField]);
+      }      
+   }
+   
+   
+   // Intercept isset calls.
+   public function __isset($objField)
+   {
+      if (isset($this->orm['data'][$objField]))
+      {
+	 return true;
+      }
+      else
+      {
+	 return false;
+      }
+   }
+   
 
-  /* Set a field name in the object with the specified value.  First attempt to look in the schema
-   * for the variable and get the correct case, since $objField is case-insensitive.  If it is not found
-   * it just sets the variable as is WITH CASE...
-   *
-   * Returns newly set value.
-   */
-
+   
+   // Intercept all property gets and send them to get()
+   public function __get($objField)
+   {
+      return $this->get($objField);
+   }   
+   
+   
+   
+   // Set a value on the object using an internal data associative array. We do this so that we
+   // can set the isDirty flag when the MrORM object has been modified.
+   //
+   // Note: Why not just set them directly on the object?  Then subsequent sets will not trigger
+   // this magic method __set(), since it only works when the property is not available.  Storing
+   // them in an internal data array ensures that they never get set directly, so our magic methods
+   // will always work.
+   //
    public function set($objField, $objValue)
    {
       foreach ($this->orm['objectFieldMap'] as $key => $value)
@@ -157,23 +201,24 @@ CLASS MrORM
          {
             if (method_exists($this, "onBeforeSet"))
             {
-               $this->onBeforeSet(strtolower($objField), $objValue);
+               $this->onBeforeSet($objField, $objValue);
             }
 
             /* We did a case-insensitive match, but actualy set the variable in the object with the correct case! */
-            $this->$key = $objValue;
-            
+            $this->orm['data'][$key] = $objValue;
+	    $this->orm['isDirty'] = true;
+	    
             if (method_exists($this, "onAfterSet"))
             {
-               $this->onAfterSet(strtolower($objField), $objValue);
+               $this->onAfterSet($objField, $objValue);
             }
-            
-            return $objValue;
-         }
+	    
+	    return $objValue;
+         }	 
       }
 
-      /* If we get here, our match did not find anything.  Set anyway as-is */
-      $this->$objField = $objValue;
+      // If we get here, we're setting a value that isn't in our object map.  The isDirty flag won't get set.
+      $this->orm['data'][$objField] = $objValue;
 
    return $objValue;
    }
@@ -200,22 +245,21 @@ CLASS MrORM
 
 
 
-  /* Return the value of an object variable.  Field name is CASE-INSENSITIVE.
+  /* Return the value of an object variable.
    *
    * Return NULL if not defined.
    */
 
    public function get($objField)
-   {
-      foreach (get_object_vars($this) as $key => $value)
+   {      
+      if (isset($this->orm['data'][$objField]))
       {
-         if (strcasecmp($objField, $key) == 0)
-         {
-            return $value;
-         }
+	 return $this->orm['data'][$objField];
       }
-
-   return NULL;
+      else
+      {
+	 return null;
+      }
    }
 
 
@@ -228,9 +272,9 @@ CLASS MrORM
    {
       foreach ($this->orm['objectFieldMap'] as $key => $value)
       {
-         if (isset($this->$key))
+         if (isset($this->orm['data'][$key]))
          {
-            $fields[$key] = $this->$key;
+            $fields[$key] = $this->orm['data'][$key];
          }
          else
          {
@@ -538,34 +582,6 @@ CLASS MrORM
 
 
 
-  /* Erase the ORM data for the current object, leaving only the properties intact.  Once this is done,
-   * no ORM methods will work on the object again.
-   */
-
-   public function deORM()
-   {
-      foreach ($this->orm['relations'] as $class => $detail)
-      {
-         if (is_object($this->$class) && method_exists($this->$class, "deORM"))
-         {
-            $this->$class->deORM();
-         }
-
-         if (is_array($this->$class))
-         {
-            foreach (array_keys($this->$class) as $key => $value)
-            {
-               $eval = "\$this->{$class}" . "[" . $value . "]" . "->deORM();";
-               eval($eval);
-            }
-         }
-      }
-
-      unset($this->orm);
-   }
-
-
-
   /* Load relations from database.  Specify no argument to load all, or specify an array with relation names
    *
    * loadRelations(array("Employees", "Contractors")) to load Employee and Contractors relations
@@ -660,13 +676,13 @@ CLASS MrORM
 
    return $total;
    }
-
+   
 
    // Determine if the ORM object has any modifications that have not been synched up with the database.
    // @return (boolean) TRUE if dirty data exists, otherwise FALSE
    public function isDirty()
    {
-      return $this->orm['dbSync'];
+      return $this->orm['isDirty'];
    }
 
 
@@ -844,6 +860,10 @@ CLASS MrORM
       $this->orm['fieldMap'][$dbField] = $objectField;
       $this->orm['objectFieldMap'][$objectField] = $this->orm['tableNameDb'] . "." . $dbField;
       $this->orm['insertUpdateMap'][$objectField] = $dbField;
+
+      // Set the class property with a null value.  Also need to unset the dirty flag because of the way we're doing object setting.
+      $this->$objectField = null;
+      $this->orm['isDirty'] = false;
    }
 
 
@@ -937,7 +957,20 @@ CLASS MrORM
    }
 
 
+   // Set the cascade save setting to true or false for enable/disable
+   protected function setCascadeSave($val=false)
+   {
+      $this->orm['cascadeSave'] = $val;
+   }
 
+   
+   // Set the cascade delete setting to true or false for enable/disable
+   protected function setCascadeDelete($val=false)
+   {
+      $this->orm['cascadeDelete'] = $val;
+   }
+   
+   
   /* Add a Unique field restraint to field(s).  This will cause MrORM to use the doUniqueInsert() method
    * when making calls to insert data to the database.
    *
@@ -1007,7 +1040,7 @@ CLASS MrORM
    * Need to do a better job for AUTO_INCREMENT primary keys.  What about SEQUENCES??
    */
 
-   private function ormSave()
+   public function ormSave()
    {
       if (method_exists($this, "onBeforeSave"))
       {
@@ -1033,12 +1066,18 @@ CLASS MrORM
       if (!$this->orm['writer']->$iMethod($this->orm['tableNameDb'], $fields))
         return FALSE;
 
-      /* Right now this assumes auto_incrementing primary keys in MySQL only */
+      /* Right now this assumes auto_incrementing primary keys in MySQL only.  If the primary key is empty, attempt to get it from the db. */
       $primaryKey = $this->orm['primaryKey'];
-      $this->$primaryKey = $this->orm['writer']->lastInsertId();
+      if (empty($this->$primaryKey)) $this->$primaryKey = $this->orm['writer']->lastInsertId();
 
       $this->orm['dbSync'] = TRUE;
-
+      $this->orm['isDirty'] = FALSE;
+      
+      if ($this->orm['cascadeSave'] == true)
+      {
+	 $this->ormCascadeSave();
+      }
+      
       if (method_exists($this, "onAfterSave"))
       {
          $this->onAfterSave();
@@ -1049,10 +1088,49 @@ CLASS MrORM
 
 
 
+   // Cascading save.  We have two scenarios here that we want to take into account when saving objects for the first time.
+   // A) Objects that are related using INNER JOINS (Belongs to, HAS ONE) will be saved, even with empty records.  The
+   //    relationship dictates that there should always be a related object of this type, so it gets inserted no matter what.
+   // B) Objects that are related using a LEFT JOIN (Might have one, has many) will only get saved if the related object is
+   //    dirty, meaning that it has been modified and needs to save.  Otherwise, any related objects will get skipped.
+   private function ormCascadeSave()
+   {
+      foreach ($this->orm['relations'] as $class => $relDetail)
+      {	 
+	 // Make sure the related object is available.  It should always be.
+	 if (!isset($this->$class))
+	 {
+	    continue;
+	 }
+	 
+	 // $ref will be a pointer to the related object.	 
+	 $ref = $this->$class;
+
+	 if ($ref->isDirty() || $relDetail['type'] == ORM_HAS_ONE || $relDetail['type'] == ORM_BELONGS_TO)
+	 {
+            // Is key in format of localkey:foreignKey?
+            if (strpos($relDetail['key'], ":", 1))
+            {
+               list($localKey, $foreignKey) = explode(":", $relDetail['key']);
+	    }
+	    // Otherwise we assume the srting represents the key variable on both objects.
+	    else
+	    {
+	       $localKey = $foreignKey = $relDetail['key'];  
+	    }
+	 
+	    // Get value of local key, and set foreign key with this value.  Sync the related object to the db.
+	    $ref->set($foreignKey, $this->get($localKey));
+	    $ref->ormSave();   
+	 }
+      }      
+   }
+
+
   /* Update object data in database using primary key.
    */
 
-   private function ormUpdate()
+   public function ormUpdate()
    {
       if (method_exists($this, "onBeforeUpdate"))
       {
@@ -1075,8 +1153,15 @@ CLASS MrORM
       $conditions = $this->ormConditions(array("{$this->orm['primaryKey']} = {$pkv}"));
       
       if (!$this->orm['writer']->doUpdate($this->orm['tableNameDb'], $fields, $conditions))
+      {
         return FALSE;
+      }
 
+      if ($this->orm['cascadeSave'] == true)
+      {
+	 $this->ormCascadeUpdate();
+      }
+      
       if (method_exists($this, "onAfterUpdate"))
       {
          $this->onAfterUpdate();
@@ -1087,6 +1172,30 @@ CLASS MrORM
    
 
 
+   // Cascading update. Loop through relations, and trigger an update on any objects that have the dirty flag
+   // set, syncing changes with the database for that object.
+   private function ormCascadeUpdate()
+   {
+      foreach ($this->orm['relations'] as $class => $relDetail)
+      {	 
+	 // Make sure the related object is available.  It should always be.
+	 if (!isset($this->$class))
+	 {
+	    continue;
+	 }
+	 
+	 // $ref will be a pointer to the related object.	 
+	 $ref = $this->$class;
+
+	 if ($ref->isDirty())
+	 {
+	    $ref->ormUpdate();      
+	 }
+      }
+   }
+   
+   
+   
    // Start the data loading process.  Build and execute SQL query / queries based on the object maps
    // and relationships defined in the ORM object. This is pretty complex stuff.
    //
