@@ -2,11 +2,11 @@
 // Mister Lib Foundation Library
 // Copyright(C) 2015 McDaniel Consulting, LLC
 //
-// Event Handler Authentication System
+// Mrlib Route Module
 //
-// Extend the Authentication Framework and provide an authentication system for the event handler.
-// This enables you to set authentication policies for entire front controllers, for events, or for specific
-// access levels as you see fit.
+// Authentication layer.  This is designed to work with the mrlib auth module to provide an ACL
+// system for routes.
+//
 //
 
 /* Define AUTH_DENY as 0 so that incorrectly typed constants will pass 0, and deny by default */
@@ -14,7 +14,7 @@ define("MRLIB_AUTH_DENY",  0);
 define("MRLIB_AUTH_ALLOW", 1);
 
 
-class MrEventAuth
+abstract class MrRouteHandlerAuth
 {
    protected $autoAuth;
    protected $authHandler;
@@ -34,11 +34,107 @@ class MrEventAuth
    function __construct()
    {
       $this->defaultAuthPolicy = MRLIB_AUTH_ALLOW;
-      $this->authCallbackMethod = "onAuth";
-      $this->noAuthCallbackMethod = "onNoAuth";
+      $this->authCallbackMethod = "onAuthenticated";
+      $this->noAuthCallbackMethod = "onNotAuthenticated";
       $this->autoAuth = FALSE;
       $this->authHandler = FALSE;      
    }
+
+
+
+   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   // Methods for contrete classes extending this abstract class
+   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+   // Check authentication credentials for by inspecting the configured definitions in the following order:
+   //1. event auth rules.
+   // 2. default event auth policy.
+   // 
+   // If a match is found, processing stops immediately and returns the authentication result right away. If
+   // NO match is found, the default auth policy is returned.
+   //
+   // @param MrRoute $route The matched route represented by a MrRoute object
+   // @return (bool) TRUE if sufficient authentication credentials are met, FALSE if not.
+   //
+   protected function authenticate($route)
+   {
+      $onAuthFunc = $this->authCallbackMethod;
+      $onNoAuthFunc = $this->noAuthCallbackMethod;
+      
+      if ($this->doAuthenticate($route))
+      {
+         if (method_exists($this->controllerObj, $onAuthFunc))
+         {
+            call_user_func(array($this->controllerObj, $onAuthFunc));            
+         }
+
+         return TRUE;
+      }
+      else
+      {
+         if (method_exists($this->controllerObj, $onNoAuthFunc))
+         {
+            call_user_func(array($this->controllerObj, $onNoAuthFunc));
+         }
+         
+         $concreteClassName = get_class($this);
+         $uri = $this->getURI();
+         trigger_error("{$concreteClassName}: {$uri}: Not Authenticated", E_USER_NOTICE);
+         $this->outputProxy->setHttpResponseCode(401);
+
+         return FALSE;
+      }
+   }
+
+
+
+  /* Add an event auth rule that applies only to the specified event.  Event rules are processed first.
+   *
+   * Blanket deny, allow rules:
+   *   addEventAuthRule("MyEvent",   MRLIB_AUTH_ALLOW)   would allow open access to event "MyEvent".  Don't even require a valid login.
+   *   addEventAuthRule("YourEvent", MRLIB_AUTH_DENY)    would deny access to "YourEvent" no matter what, period, ever.  Probably not too useful really, but it is here.
+   *
+   * Specific rules:
+   *   addEventAuthRule("MyEvent",   MRLIB_AUTH_ALLOW, "ADMIN")   would allow access to event "MyEvent" if you have the "ADMIN" level.
+   *   addEventAuthRule("YourEvent", MRLIB_AUTH_DENY,  "ADMIN")   would deny access to "YourEvent" if you have the "ADMIN" level.
+   *
+   * If you need to DENY or ALLOW by default, set that in the default rules.
+   * 
+   * @param $eventName (string)  The name of the event to bind the default policy.
+   * @param $policy (constant)   A valid auth policy constant of MRLIB_AUTH_ALLOW or MRLIB_AUTH_DENY
+   * @param $authLevelIdentifier (string)  An auth level identifier that is defined in the MrAuthLevel db table
+   * @return (boolean)  Will return FALSE if policy constant is not valid, otherwise returns TRUE
+   */
+
+   public function addAuthRule($eventName, $policy, $authLevelIdentifier=NULL)
+   {
+      //if ($authLevelIdentifier != NULL) $authLevelIdentifier = strtoupper($authLevelIdentifier);
+      //$eventName = strtoupper($eventName);
+
+      if (!$this->validateAuthPolicy($policy))
+      {
+         trigger_error("Invalid auth policy: {$policy}", E_USER_WARNING);
+         return FALSE;
+      }
+
+      $new = array();
+      $new['identifier'] = $authLevelIdentifier;
+      $new['policy'] = $policy;
+      $this->eventAuthRules[$eventName][] = $new;
+
+   return TRUE;
+   }
+
+
+
+   
+   
+   
+   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   // Convenience methods
+   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   /* Set auto authentication on/off.  If turned on, authenticate() is called automatically by the execute()
@@ -47,7 +143,7 @@ class MrEventAuth
    * @param $toggle (boolean)  Specify TRUE to turn this feature on, FALSE to leave it off (default)
    */
 
-   public function setAutoAuth($toggle)
+   public function setDefaultAutoAuth($toggle)
    {
       switch ($toggle)
       {
@@ -63,13 +159,11 @@ class MrEventAuth
 
 
 
-  /* Explictly specify an Authentication Handler to use by passing in a reference to one.  This should only
-   * be used when necessary when the MrAuthManager cannot be used for some reason.
-   * 
+  /* Explictly specify an Authentication Handler to use by passing in a reference to one.
    * @param $ref (MrAuthHandler)  An initialized object derived from MrAuthHandler
    */
 
-   public function setAuthHandler($ref)
+   public function setDefaultAuthHandler($ref)
    {
       $this->authHandler = $ref;
    }
@@ -148,95 +242,29 @@ class MrEventAuth
    return TRUE;
    }
 
+   
+   
+   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   // Internal methods
+   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-  /* Add an event auth rule that applies only to the specified event.  Event rules are processed first.
-   *
-   * Blanket deny, allow rules:
-   *   addEventAuthRule("MyEvent",   MRLIB_AUTH_ALLOW)   would allow open access to event "MyEvent".  Don't even require a valid login.
-   *   addEventAuthRule("YourEvent", MRLIB_AUTH_DENY)    would deny access to "YourEvent" no matter what, period, ever.  Probably not too useful really, but it is here.
-   *
-   * Specific rules:
-   *   addEventAuthRule("MyEvent",   MRLIB_AUTH_ALLOW, "ADMIN")   would allow access to event "MyEvent" if you have the "ADMIN" level.
-   *   addEventAuthRule("YourEvent", MRLIB_AUTH_DENY,  "ADMIN")   would deny access to "YourEvent" if you have the "ADMIN" level.
-   *
-   * If you need to DENY or ALLOW by default, set that in the default rules.
-   * 
-   * @param $eventName (string)  The name of the event to bind the default policy.
-   * @param $policy (constant)   A valid auth policy constant of MRLIB_AUTH_ALLOW or MRLIB_AUTH_DENY
-   * @param $authLevelIdentifier (string)  An auth level identifier that is defined in the MrAuthLevel db table
-   * @return (boolean)  Will return FALSE if policy constant is not valid, otherwise returns TRUE
-   */
-
-   public function addEventAuthRule($eventName, $policy, $authLevelIdentifier=NULL)
-   {
-      //if ($authLevelIdentifier != NULL) $authLevelIdentifier = strtoupper($authLevelIdentifier);
-      //$eventName = strtoupper($eventName);
-
-      if (!$this->validateAuthPolicy($policy))
-      {
-         trigger_error("Invalid auth policy: {$policy}", E_USER_WARNING);
-         return FALSE;
-      }
-
-      $new = array();
-      $new['identifier'] = $authLevelIdentifier;
-      $new['policy'] = $policy;
-      $this->eventAuthRules[$eventName][] = $new;
-
-   return TRUE;
-   }
-
-
-  /* Check authentication credentials for by inspecting the configured definitions in the following order:
-   * 1. event auth rules.
-   * 2. default event auth policy.
-   * 
-   * If a match is found, processing stops immediately and returns the authentication result right away. If
-   * NO match is found, the default auth policy is returned.
-   *
-   * @return (bool) TRUE if sufficient authentication credentials are met, FALSE if not.
-   */
-
-   public function authenticate()
-   {
-      $onAuthFunc = $this->authCallbackMethod;
-      $onNoAuthFunc = $this->noAuthCallbackMethod;
-            
-      if ($this->doAuthenticate())
-      {
-         if (method_exists($this->controllerObj, $onAuthFunc))
-         {
-            call_user_func(array($this->controllerObj, $onAuthFunc));            
-         }
-         return TRUE;
-      }
-      else
-      {
-         if (method_exists($this->controllerObj, $onNoAuthFunc))
-         {
-            call_user_func(array($this->controllerObj, $onNoAuthFunc));
-         }
-         return FALSE;
-      }
-   }
-
-
-   // Perform the authentication and return TRUE/FALSE
-   private function doAuthenticate()
+   
+   
+   // Perform the authentication.
+   // @param MrRoute $route The current route represented by a MrRoute object.
+   // @return boolean
+   private function doAuthenticate($route)
    {
       $eventName = $this->eventName;
    
-      // Get a reference to the authentication handler if we don't yet have it.
-      if (!$this->authHandler)
-      {
-         $this->authHandler = mrlib::getSingleton("auth/MrAuthManager")->getAuthHandler();
-      }
-
+      $res = $this->authHandler->loadAuthSession($route);
+      var_dump($res);
+      exit;
+   
       // If not logged in, there is one special case that we need to check for:  Make sure there are not event
       // auth rules that allow a certain event to be accessed with an allow rule and no identifier.  This means
       // that there is no authentication requirement for that event; not even a valid login session.
-      if (!$this->authHandler->isLoggedIn())
+      if (!$a)
       {
          if (isset($this->eventAuthRules[$eventName]))
          {
@@ -378,7 +406,8 @@ class MrEventAuth
 
 
 
-/* end EventAuth class */
+// MrRouteHandlerAuth
 }
+
 
 ?>

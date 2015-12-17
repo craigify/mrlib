@@ -200,11 +200,11 @@ class MrInputProxy
    }
 
 
-  /* Add input data.  This grabs data from one of the various input data arrays in PHP and stores them
+  /* Load input data.  This grabs data from one of the various input data arrays in PHP and stores them
    * internally.   Watch for duplicate fields, as previous array keys will be overwritten.
    */
 
-   public function addInputData($type)
+   public function loadInputData($type)
    {
       switch ($type)
       {

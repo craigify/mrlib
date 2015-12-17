@@ -2,20 +2,20 @@
 // Mister Lib Foundation Library
 // Copyright(C) 2015 McDaniel Consulting, LLC
 //
-// Authentication Layer
+// This class represents a User.
 //
-// This class represents a user in the system.  A user can have auth levels
-// assigned to it directly.  Users can be assigned to groups with group auth
-// levels which the user will inherit due to the association with the group.
-// (This is practically identical to unix user and group permissions)
-//
+// This class both extends MrORM to provide the database abstraction, and implements MrAuthUserInterface, which describes
+// the required implementation for a user in the mrlib auth framework.
 //
 
 mrlib::load("sql/MrORM");
+mrlib::load("auth/MrAuthUser");
+mrlib::load("auth/MrAuthGroup");
 mrlib::load("auth/MrAuthLevel");
+mrlib::load("auth/interfaces/MrAuthUserInterface");
 
 
-class MrAuthUser extends MrORM
+class MrAuthUser extends MrORM implements MrAuthUserInterface
 {
    public $id;
    public $username;
@@ -35,6 +35,10 @@ class MrAuthUser extends MrORM
    // To keep track of them internally.
    public $userAuthLevels = array();
    public $groupAuthLevels = array();
+
+   // Booleans
+   public $validUser = false;
+   public $validPass = false;
    
 
    function __construct()
@@ -49,15 +53,52 @@ class MrAuthUser extends MrORM
       MrORM::addMap("deleted",       "auth_deleted");
       MrORM::addPrimaryKey("id");
    }
-
-
-
-   // Retrieve all auth levels for this user. Return an array of auth level identifiers and names, e.g:
-   //    array("LEVEL1" => "Level 1 auth Level"
-   //          "LEVEL2" => "Level 2 auth Level"
-   //         )
+   
+   
+   // @return boolean TRUE if this object is loaded with a valid user, FALSE is not.
+   public function isUserValid()
+   {
+      return $this->validUser;
+   }
+   
+   
+   // @return boolean TRUE if password was validated, FALSE if not.
+   public function isPasswordValid()
+   {
+      return $this->validPass;   
+   }
+   
+   
+   // Compare password on record to specified password.
+   // @param $password string Plaintext password to verify
+   // @return boolean TRUE if password hash matches, FALSE if not
+   public function validatePassword($password)
+   {
+      $encpass = $this->encryptPassword($password);
+      
+      if ($this->password == $encpass)
+      {
+         $this->validPass = TRUE;
+         return TRUE;
+      }
+      else
+      {
+         $this->validPass = FALSE;
+         return FALSE;
+      }
+   }
+   
+   
+   public function getUsername()
+   {
+      return $this->username;
+   }
+   
+   
+   // Retrieve all auth levels for this user. Return an array of auth level identifiers as strings, e.g.
+   // array("ADMIN", "GUEST", "API_ACCESS")
    //
-   // @return (array)   auth level array for the user.  Might be empty if no auth levels defined.
+   // @return array Auth level array for the user.  Might be empty if no auth levels defined.
    public function getAuthLevels()
    {
       if (empty($this->authLevels))
@@ -65,13 +106,12 @@ class MrAuthUser extends MrORM
          $this->loadAuthLevels();
       }
 
-      return $this->authLevels;
+      return array_keys($this->authLevels);
    }
 
 
-
    // Check if this user has a specified auth level.
-   // @return (boolean) TRUE if so, FALSE otherwise.
+   // @return boolean TRUE if so, FALSE otherwise.
    public function hasAuthLevel($identifier)
    {
       if (empty($this->authLevels))
@@ -93,7 +133,7 @@ class MrAuthUser extends MrORM
 
 
    // Assign an auth level to the current user.
-   // @param $identifier (string) The auth level identifier string
+   // @param $identifier string The auth level identifier string
    // @return TRUE/FALSE
    public function addAuthLevel($identifier)
    {
@@ -164,30 +204,10 @@ class MrAuthUser extends MrORM
 
 
 
-   // Compare password on record to specified password.
-   // @param (string)     plaintext password
-   // @return (bool)      TRUE if password hash matches, FALSE if not
-   public function validatePassword($password)
-   {
-      $encpass = $this->encryptPassword($password);
-      
-      if ($this->password == $encpass)
-      {
-         $this->validPass = TRUE;
-         return TRUE;
-      }
-      else
-      {
-         $this->validPass = FALSE;
-         return FALSE;
-      }
-   }
-
-
-   // Perform the encryption (hashing) of the password depending on defined encryption algorithim.  Return encrypted
-   // password on success, FALSE on failure.
-   // @param (string)   plaintext password
-   // @return (string)  encrypted password, FALSE if error.
+   // Perform the encryption (hashing) of the password depending on defined encryption algorithim.  If "plain" is specified
+   // as the encryption method, it just returns the input string.  Please don't use plain in production...
+   // @param $plaintext string   Plaintext password to encrypt
+   // @return string  Encrypted password, FALSE if error.
    public function encryptPassword($plaintext)
    {
       switch (strtoupper($this->encMethod))
@@ -218,7 +238,7 @@ class MrAuthUser extends MrORM
    // object.  We get both user level and group levels, and put them in $this->authLevels.
    //
    // To retrieve a list of auth levels, use getAuthLevels() which calls this method, then returns them as an array.
-   public function loadAuthLevels()
+   protected function loadAuthLevels()
    {
       $reader = $this->getReader();
       $id = $reader->e($this->id);
@@ -269,7 +289,18 @@ class MrAuthUser extends MrORM
       if (empty($this->updated)) $this->updated = $this->created;
    }
 
+   
+   
+   // MrORM callback function.  Determine if we actually loaded a real user.
+   protected function onAfterLoad()
+   {
+      if (MrORM::isSynched() && !empty($this->id))
+      {
+         $this->validUser = TRUE;
+      }
+   }
 
+   
 // end MrAuthUser class
 }
 

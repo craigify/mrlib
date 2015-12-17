@@ -7,34 +7,11 @@
 
 class MrController
 {
-    protected $inputProxy;
-    protected $outputProxy;
-    protected $eventHandler;
-
-    public function __construct()
-    {
-        $this->inputProxy = mrlib::getSingleton("proxy/MrProxyManager")->getInputProxy();
-        $this->outputProxy = mrlib::getSingleton("proxy/MrProxyManager")->getOutputProxy();
-    }
-
-
-    // Set a reference to the event handler object if the controller is used with an EventHandler.
-    // @param (MrEventHandler) $obj  Reference to the event handler object associated with this controller.
-    public function setEventHandler($obj)
-    {
-        $this->eventHandler = $obj;
-    }
+    
+    function __construct() { }
+    function __destruct() { }
     
     
-    // Retrieve a reference to the event handler.  Since you'll most likely be extending this class to power your higher level
-    // controller, you can also just reference parent::eventHandler.
-    // @return (EventHandler)  Returns EventHandler object.
-    public function getEventHandler()
-    {
-        return $this->eventHandler;
-    }
-
-
     // Include a view page from the views directory and return its output as a string.
     // @param  (string) $viewfile   Name of the filename in the views directory
     // @param  (array)  $data       Array of key, value pairs representing variables that you want to have defined in the view file
@@ -129,14 +106,6 @@ class MrController
     }
     
     
-
-    // Stop the execution of the event handler, and dump the contents of the output proxy.  Then exit.
-    public function stopExecution()
-    {
-       $this->outputProxy->displayOutput();
-       exit();
-    }
-
 
     // Get a reference to myself.
     public function getController()

@@ -43,13 +43,15 @@ class mrlib
 	// If file starts with "./", we look into the application root dir.
 	if ($file[0] == "." && $file[1] == "/")
 	{
-	    require_once($location['root_dir'] . "/" . substr($file, 2) . ".php");
+	    $res = include_once($location['root_dir'] . "/" . substr($file, 2) . ".php");
+            if (!$res) trigger_error(print_r(debug_backtrace(), TRUE), E_USER_WARNING);
 	}
 	
 	// The file did not start with "./".  Assume we're loading a mrlib module.  Look in mrlib modules dir.
 	else
 	{
-	    require_once($location['modules_dir'] . "/" . $file . ".php");            
+	    $res = include_once($location['modules_dir'] . "/" . $file . ".php");
+            if (!$res) trigger_error(print_r(debug_backtrace(), TRUE), E_USER_WARNING);
 	}
     }
 

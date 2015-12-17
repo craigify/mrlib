@@ -15,8 +15,8 @@ class MrInputProxyJSON extends MrInputProxy
    }
 
 
-   // Override addInputData() to decode any JSON in input vars.
-   public function addInputData($type)
+   // Override loadInputData() to decode any JSON in input vars.
+   public function loadInputData($type)
    {
       switch ($type)
       {
@@ -39,7 +39,7 @@ class MrInputProxyJSON extends MrInputProxy
 
       foreach ($data as $key => $value)
       {         
-         $valueDec = json_decode($value, TRUE);
+         $valueDec = json_decode($value);
 
          if (empty($valueDec))
          {

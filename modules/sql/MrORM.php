@@ -34,14 +34,13 @@
 //
 // Other methods:
 // ----------------------------------------------------------------------------------------------------------------------------------------
-// deORM()                    Remove all of the MrORM internal data from the object, leaving only the field names and data.
 // loadRelations()            Load any relations (has one, has many) manually.
 // countTableRows()           Return total number of rows in the table
 // countTotalRows()           Return the total amount of rows in your resultset if you were to NOT INCLUDE A LIMIT CLAUSE. Useful for pagination.
 //
 // Defining a MrORM object
 //
-// 1. class MyObj extends MrORM.  MyObj is the name of the database table.  These MUST match.
+// 1. class MyObj extends MrORM.  MyObj is the name of the database table. If they don't match, use setTableDbName()
 // 2. myObj constructor must call the MrORM constructor.
 // 3. Use addMap() to map db column names to object field names.
 // 4. Use addRelation() to define relation to other MrORM objects you defined.
@@ -431,6 +430,14 @@ CLASS MrORM
 
    public function delete($id, $conditions=array())
    {
+      if (empty($id))
+      {
+         $id = $this->ormGetPrimaryKeyValue();
+      }
+
+      // If we still have no id value, we can't really delete anything...
+      if (empty($id)) return FALSE;
+
       $db = $this->orm['writer'];
       $table = $this->orm['tableNameDb'];
       $primaryKeyObj = $this->orm['primaryKey'];
